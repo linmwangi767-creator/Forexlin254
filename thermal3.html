@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AssetGuard Pro - Exact Thermal Printer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- PDF.js for parsing PDF files -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root { --primary: #0072CE; --dark: #001A35; --success: #22c55e; --bg: #f4f6f9; --muted: #64748b; --danger: #ef4444; }
+    body { font-family: 'Poppins', sans-serif; margin: 0; padding: 20px; background: var(--bg); color: #1f2937; box-sizing: border-box; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #f0f2f5; }
+    h2 { text-align: center; color: var(--dark); margin-bottom: 5px; font-weight: 700; font-size: 20px; }
+    p.subtitle { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+    
+    .upload-box { border: 2px dashed #cbd5e1; padding: 20px; text-align: center; border-radius: 14px; background: #fafafa; cursor: pointer; transition: 0.2s; margin-bottom: 15px; display: block; }
+    .upload-box:hover { border-color: var(--primary); background: #f0f7ff; }
+    .upload-box input { display: none; }
+    .upload-box span { font-size: 12px; font-weight: 600; color: var(--dark); display: block; margin-top: 5px; }
+    
+    .preview-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    
+    .thermal-receipt-textarea {
+        background: #ffffff;
+        color: #000000;
+        font-family: 'Courier New', Courier, monospace;
+        padding: 15px;
+        width: 100%;
+        max-width: 360px;
+        height: 320px;
+        font-size: 11px;
+        line-height: 1.4;
+        border: 2px solid var(--primary);
+        border-radius: 8px;
+        box-sizing: border-box;
+        margin-bottom: 15px;
+        resize: vertical;
+        white-space: pre;
+    }
+    
+    .actions-grid { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; margin: 0 auto; }
+    .btn { border: none; padding: 12px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; width: 100%; text-align: center; text-transform: uppercase; }
+    .btn-dark { background: var(--dark); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn:disabled { background: #cbd5e1 !important; cursor: not-allowed; }
+    
+    .bt-status { font-size: 11px; font-weight: 700; color: var(--danger); text-align: center; margin-bottom: 5px; }
+    .bt-status.connected { color: var(--success); }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Verbatim Thermal Printer Bridge</h2>
+    <p class="subtitle">Review your exact receipt text and print directly to 58mm Bluetooth Printers</p>
+
+    <label class="upload-box">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0072CE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Or Upload Another PDF Receipt</span>
+        <input type="file" id="pdfFileInput" accept="application/pdf" onchange="handlePdfUpload(event)">
+    </label>
+
+    <div class="preview-section">
+        <span style="font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Review & Edit Receipt Content Before Printing</span>
+        
+        <!-- Interactive review and edit textarea preloaded with your exact receipt -->
+        <textarea id="receiptEditor" class="thermal-receipt-textarea">JCorp Kenya Inc
+TRANSFORMATION YOU NEED
+INVOICE NO: 14T03:24
+DATE: 14/10/2026
+TIME: 06:24:45
+OFFICIAL SALES RECEIPT
+CUSTOMER DETAILS
+Walk-in Customer
+Payment Method: Cash
+--------------------------------
+DESCRIPTION           QTY  TOTAL
+0.5 white spirits      1    174
+1/2 mineral turpentine 1    232
+--------------------------------
+PAID - Cash
+Invoice Total:        KES 406
+Amount Paid:          KES 406
+--------------------------------
+CUSTOMER SIGNATURE:
+________________________________
+AUTHORIZED SELLER:
+________________________________
+Thank you for shopping!</textarea>
+
+        <div class="actions-grid">
+            <div id="btStatusLabel" class="bt-status">Bluetooth Printer: Not Connected</div>
+            <button class="btn btn-dark" id="btConnectBtn" onclick="connectBluetoothPrinter()">Pair / Connect RPP02N</button>
+            <button class="btn btn-success" id="btPrintBtn" disabled onclick="printDirectToBluetooth()">🖨️ Print Direct to Thermal</button>
+        </div>
+    </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let bluetoothDevice = null;
+let bluetoothCharacteristic = null;
+
+async function handlePdfUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const fileReader = new FileReader();
+    fileReader.onload = async function() {
+        const typedarray = new Uint8Array(this.result);
+        try {
+            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            let extractedText = "";
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                extractedText += pageText + "\n";
+            }
+
+            if (extractedText.trim()) {
+                document.getElementById('receiptEditor').value = extractedText.trim();
+            } else {
+                alert("Could not extract text from this PDF. You can type or paste it manually.");
+            }
+        } catch (error) {
+            console.error("PDF Parsing error:", error);
+            alert("Error reading PDF file.");
+        }
+    };
+    fileReader.readAsArrayBuffer(file);
+}
+
+window.connectBluetoothPrinter = async () => {
+    try {
+        if (!navigator.bluetooth) {
+            alert("Web Bluetooth is not supported on this browser/device.");
+            return;
+        }
+
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [
+                { name: 'RPP02N' },
+                { namePrefix: 'RPP' },
+                { namePrefix: 'MTP' },
+                { namePrefix: 'Printer' }
+            ],
+            optionalServices: [
+                '000018f0-0000-1000-8000-00805f9b34fb',
+                '0000ffe0-0000-1000-8000-00805f9b34fb',
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                '0000ff00-0000-1000-8000-00805f9b34fb'
+            ]
+        });
+
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
+        
+        for (let service of services) {
+            const characteristics = await service.getCharacteristics();
+            for (let characteristic of characteristics) {
+                if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+                    bluetoothCharacteristic = characteristic;
+                    bluetoothDevice = device;
+                    
+                    const btBtn = document.getElementById('btConnectBtn');
+                    const btStatus = document.getElementById('btStatusLabel');
+                    
+                    btBtn.innerText = `Connected: ${device.name || 'Printer'}`;
+                    btBtn.style.background = '#22c55e';
+                    btStatus.innerText = "Bluetooth Printer: Connected";
+                    btStatus.className = "bt-status connected";
+                    
+                    document.getElementById('btPrintBtn').disabled = false;
+                    alert(`Successfully paired with ${device.name || 'Printer'}!`);
+                    return;
+                }
+            }
+        }
+        alert("No writable printer characteristic found on this device.");
+    } catch (error) {
+        console.error("Bluetooth connection failed", error);
+        if (error.name !== 'NotFoundError') {
+            alert(error.message || "Could not pair with Bluetooth printer.");
+        }
+    }
+};
+
+window.printDirectToBluetooth = async () => {
+    if (!bluetoothCharacteristic) {
+        alert("Please pair and connect your Bluetooth printer first.");
+        return;
+    }
+
+    const textContent = document.getElementById('receiptEditor').value;
+    if (!textContent.trim()) {
+        alert("Receipt text box is empty.");
+        return;
+    }
+
+    try {
+        const encoder = new TextEncoder();
+        let commands = [];
+
+        // ESC/POS Command Initialization to prevent blank outputs
+        commands.push(new Uint8Array([0x1B, 0x40])); // Reset printer
+        commands.push(new Uint8Array([0x1B, 0x61, 0x00])); // Left align
+
+        const lines = textContent.split('\n');
+        lines.forEach(line => {
+            commands.push(encoder.encode(line + '\r\n'));
+        });
+
+        commands.push(encoder.encode('\r\n\r\n\r\n')); // Feed lines
+        commands.push(new Uint8Array([0x1D, 0x56, 0x42, 0x00])); // Cut command
+
+        let totalLength = commands.reduce((acc, curr) => acc + curr.length, 0);
+        let fullPacket = new Uint8Array(totalLength);
+        let offset = 0;
+        for (let cmd of commands) {
+            fullPacket.set(cmd, offset);
+            offset += cmd.length;
+        }
+
+        const CHUNK_SIZE = 128;
+        for (let i = 0; i < fullPacket.length; i += CHUNK_SIZE) {
+            let chunk = fullPacket.slice(i, i + CHUNK_SIZE);
+            if (bluetoothCharacteristic.properties.writeWithoutResponse) {
+                await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
+            } else {
+                await bluetoothCharacteristic.writeValue(chunk);
+            }
+            await new Promise(resolve => setTimeout(resolve, 35));
+        }
+
+        alert("Receipt printed successfully!");
+    } catch (error) {
+        console.error("Print error", error);
+        alert("Print failed: " + (error.message || "Unknown error"));
+    }
+};
+</script>
+
+</body>
+</html>

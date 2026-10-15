@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AssetGuard Pro - Dynamic Verbatim Thermal Bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- PDF.js for parsing PDF files -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root { 
+        --primary: #0072CE; 
+        --dark: #001A35; 
+        --accent: #ff6b00; 
+        --light: #f8faff; 
+        --success: #22c55e; 
+        --bg: #0b132b; 
+        --card-bg: #ffffff;
+        --muted: #64748b; 
+        --danger: #ef4444; 
+    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 15px; background: linear-gradient(135deg, #001A35 0%, #0b132b 100%); color: #1f2937; min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    
+    .container { max-width: 550px; width: 100%; background: var(--card-bg); padding: 24px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; }
+    
+    /* Top Compact Header Control Bar */
+    .top-control-bar {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .printer-status-info { display: flex; flex-direction: column; }
+    .printer-status-info span:first-child { font-size: 9px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .printer-status-info span:last-child { font-size: 11px; font-weight: 700; color: var(--danger); }
+    .printer-status-info span.connected { color: var(--success); }
+    
+    .top-btn-group { display: flex; gap: 6px; }
+    .btn-sm { border: none; padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+    .btn-connect { background: var(--dark); color: #fff; }
+    .btn-connect.connected { background: var(--success); }
+    .btn-reset-history { background: #fee2e2; color: var(--danger); }
+
+    h2 { text-align: center; color: var(--dark); margin: 0 0 4px 0; font-weight: 800; font-size: 18px; letter-spacing: -0.3px; }
+    p.subtitle { text-align: center; color: var(--muted); font-size: 11px; margin-bottom: 20px; }
+    
+    .upload-box { border: 2px dashed #cbd5e1; padding: 18px; text-align: center; border-radius: 14px; background: #fafafa; cursor: pointer; transition: 0.2s; margin-bottom: 15px; display: block; }
+    .upload-box:hover { border-color: var(--primary); background: #f0f7ff; }
+    .upload-box input { display: none; }
+    .upload-box span { font-size: 11px; font-weight: 700; color: var(--dark); display: block; margin-top: 4px; }
+    
+    .preview-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+    
+    .thermal-receipt-textarea {
+        background: #ffffff;
+        color: #000000;
+        font-family: 'Courier New', Courier, monospace;
+        padding: 14px;
+        width: 100%;
+        max-width: 360px;
+        height: 280px;
+        font-size: 11px;
+        line-height: 1.4;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        box-sizing: border-box;
+        margin-bottom: 15px;
+        resize: vertical;
+        white-space: pre;
+    }
+    .thermal-receipt-textarea:focus { border-color: var(--primary); outline: none; }
+    
+    .actions-grid { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; margin: 0 auto; }
+    .btn { border: none; padding: 12px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; width: 100%; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-dark { background: var(--dark); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn:disabled { background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Top Compact Header Control Bar -->
+    <div class="top-control-bar">
+        <div class="printer-status-info">
+            <span>Device Memory</span>
+            <span id="btStatusLabel">Not Connected</span>
+        </div>
+        <div class="top-btn-group">
+            <button class="btn-sm btn-connect" id="btConnectBtn" onclick="connectBluetoothPrinter()">Pair / Connect</button>
+            <button class="btn-sm btn-reset-history" onclick="clearPrinterHistory()" title="Clear remembered device">Reset</button>
+        </div>
+    </div>
+
+    <h2>AssetGuard Pro</h2>
+    <p class="subtitle">Dynamic Verbatim Thermal Receipt Bridge</p>
+
+    <label class="upload-box">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0072CE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Upload PDF Receipt (Fully Dynamic)</span>
+        <input type="file" id="pdfFileInput" accept="application/pdf" onchange="handlePdfUpload(event)">
+    </label>
+
+    <div class="preview-section">
+        <span style="font-size: 9px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Receipt Inspection & Editor Window</span>
+        
+        <!-- Interactive review and edit textarea initialized empty -->
+        <textarea id="receiptEditor" class="thermal-receipt-textarea" placeholder="Upload any PDF receipt above to automatically load its exact text verbatim..."></textarea>
+
+        <div class="actions-grid">
+            <button class="btn btn-success" id="btPrintBtn" disabled onclick="printDirectToBluetooth()">🖨️ Print Direct to Thermal</button>
+        </div>
+    </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let bluetoothDevice = null;
+let bluetoothCharacteristic = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+    checkRememberedPrinter();
+});
+
+async function checkRememberedPrinter() {
+    const rememberedName = localStorage.getItem('ag_printer_name');
+    if (rememberedName && navigator.bluetooth && navigator.bluetooth.getAvailability) {
+        const isAvailable = await navigator.bluetooth.getAvailability();
+        if (isAvailable) {
+            const label = document.getElementById('btStatusLabel');
+            const btn = document.getElementById('btConnectBtn');
+            label.innerText = `Saved: ${rememberedName}`;
+            btn.innerText = "Reconnect";
+        }
+    }
+}
+
+async function handlePdfUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function() {
+        try {
+            const typedarray = new Uint8Array(this.result);
+            const loadingTask = pdfjsLib.getDocument({ data: typedarray });
+            const pdfDoc = await loadingTask.promise;
+            
+            let allTextLines = [];
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const textContent = await page.getTextContent();
+                
+                if (textContent.items && textContent.items.length > 0) {
+                    // Map items with coordinates
+                    let items = textContent.items.map(item => ({
+                        text: item.str.trim(),
+                        x: item.transform[4],
+                        y: item.transform[5]
+                    })).filter(i => i.text.length > 0);
+
+                    // Sort items strictly top-to-bottom (descending Y) then left-to-right (ascending X)
+                    items.sort((a, b) => {
+                        if (Math.abs(b.y - a.y) > 4) {
+                            return b.y - a.y;
+                        }
+                        return a.x - b.x;
+                    });
+                    
+                    let currentLineY = null;
+                    let lineBuffer = [];
+                    
+                    items.forEach(item => {
+                        if (currentLineY === null || Math.abs(item.y - currentLineY) > 4) {
+                            if (lineBuffer.length > 0) {
+                                allTextLines.push(lineBuffer.join(' '));
+                                lineBuffer = [];
+                            }
+                            currentLineY = item.y;
+                        }
+                        lineBuffer.push(item.text);
+                    });
+                    if (lineBuffer.length > 0) {
+                        allTextLines.push(lineBuffer.join(' '));
+                    }
+                }
+            }
+
+            const finalString = allTextLines.join('\n');
+            if (finalString.trim()) {
+                document.getElementById('receiptEditor').value = finalString;
+            } else {
+                alert("The PDF parser could not detect text blocks. Ensure your PDF has selectable text.");
+            }
+        } catch (error) {
+            console.error("PDF Parsing error:", error);
+            alert("Error reading PDF file: " + (error.message || error));
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+window.connectBluetoothPrinter = async () => {
+    try {
+        if (!navigator.bluetooth) {
+            alert("Web Bluetooth is not supported on this browser/device.");
+            return;
+        }
+
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+                '000018f0-0000-1000-8000-00805f9b34fb',
+                '0000ffe0-0000-1000-8000-00805f9b34fb',
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                '0000ff00-0000-1000-8000-00805f9b34fb',
+                'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+            ]
+        });
+
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
+        
+        for (let service of services) {
+            const characteristics = await service.getCharacteristics();
+            for (let characteristic of characteristics) {
+                if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+                    bluetoothCharacteristic = characteristic;
+                    bluetoothDevice = device;
+                    
+                    localStorage.setItem('ag_printer_name', device.name || 'RPP02N');
+                    
+                    const btn = document.getElementById('btConnectBtn');
+                    const label = document.getElementById('btStatusLabel');
+                    
+                    btn.innerText = "Connected";
+                    btn.className = "btn-sm btn-connect connected";
+                    label.innerText = device.name || 'RPP02N';
+                    label.className = "connected";
+                    
+                    document.getElementById('btPrintBtn').disabled = false;
+                    return;
+                }
+            }
+        }
+        alert("Connected to device, but no writable printer characteristic was found.");
+    } catch (error) {
+        console.error("Bluetooth connection failed", error);
+        if (error.name !== 'NotFoundError') {
+            alert(error.message || "Could not pair with Bluetooth printer.");
+        }
+    }
+};
+
+window.clearPrinterHistory = () => {
+    localStorage.removeItem('ag_printer_name');
+    bluetoothDevice = null;
+    bluetoothCharacteristic = null;
+    
+    const btn = document.getElementById('btConnectBtn');
+    const label = document.getElementById('btStatusLabel');
+    
+    btn.innerText = "Pair / Connect";
+    btn.className = "btn-sm btn-connect";
+    label.innerText = "Not Connected";
+    label.className = "";
+    document.getElementById('btPrintBtn').disabled = true;
+    
+    alert("Printer history cleared & reset successfully.");
+};
+
+window.printDirectToBluetooth = async () => {
+    if (!bluetoothCharacteristic) {
+        alert("Please pair and connect your Bluetooth printer first.");
+        return;
+    }
+
+    const textContent = document.getElementById('receiptEditor').value;
+    if (!textContent.trim()) {
+        alert("Receipt text box is empty.");
+        return;
+    }
+
+    try {
+        const encoder = new TextEncoder();
+        let commands = [];
+
+        commands.push(new Uint8Array([0x1B, 0x40])); // Reset printer
+        commands.push(new Uint8Array([0x1B, 0x61, 0x00])); // Left align
+
+        const lines = textContent.split('\n');
+        lines.forEach(line => {
+            commands.push(encoder.encode(line + '\r\n'));
+        });
+
+        commands.push(encoder.encode('\r\n\r\n\r\n')); // Feed lines
+        commands.push(new Uint8Array([0x1D, 0x56, 0x42, 0x00])); // Cut command
+
+        let totalLength = commands.reduce((acc, curr) => acc + curr.length, 0);
+        let fullPacket = new Uint8Array(totalLength);
+        let offset = 0;
+        for (let cmd of commands) {
+            fullPacket.set(cmd, offset);
+            offset += cmd.length;
+        }
+
+        const CHUNK_SIZE = 128;
+        for (let i = 0; i < fullPacket.length; i += CHUNK_SIZE) {
+            let chunk = fullPacket.slice(i, i + CHUNK_SIZE);
+            if (bluetoothCharacteristic.properties.writeWithoutResponse) {
+                await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
+            } else {
+                await bluetoothCharacteristic.writeValue(chunk);
+            }
+            await new Promise(resolve => setTimeout(resolve, 35));
+        }
+
+        alert("Receipt printed successfully!");
+    } catch (error) {
+        console.error("Print error", error);
+        alert("Print failed: " + (error.message || "Unknown error"));
+    }
+};
+</script>
+
+</body>
+</html>
