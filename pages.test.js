@@ -1,9 +1,12 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = existsSync(path.join(testDirectory, "database.rules.json"))
+  ? testDirectory
+  : path.resolve(testDirectory, "..");
 
 // index.html is the login page itself, so it must stay reachable without a session.
 const UNGUARDED = new Set(["index.html"]);
@@ -74,5 +77,25 @@ describe("expense cloud persistence", () => {
     expect(entryPage).toContain("Saved on this device only. Reconnect and sync before clearing browser data.");
     expect(entryPage).toContain("Expense saved to your cloud account.");
     expect(entryPage).toContain("Some expenses are only stored in this browser.");
+  });
+});
+
+describe("sales PDF thermal receipt flow", () => {
+  const salesPage = readFileSync(path.join(repoRoot, "sales.html"), "utf8");
+
+  it("lets the sales ledger select and read a PDF receipt in-browser", () => {
+    expect(salesPage).toContain('id="receiptPdfInput" type="file" accept=".pdf,application/pdf"');
+    expect(salesPage).toContain("window.handleReceiptPdfUpload = async event =>");
+    expect(salesPage).toContain("pdfjsLib.getDocument");
+    expect(salesPage).toContain("No selectable text was found");
+  });
+
+  it("renders imported receipt text in thermal mode and offers export and print actions", () => {
+    expect(salesPage).toContain("activeReceiptPayload.importedText");
+    expect(salesPage).toContain('class="imported-thermal-receipt"');
+    expect(salesPage).toContain("Download 58mm PDF");
+    expect(salesPage).toContain("Share 58mm Receipt");
+    expect(salesPage).toContain("Print from Browser");
+    expect(salesPage).toContain("@page { size: 58mm auto; margin: 0; }");
   });
 });
