@@ -5,7 +5,6 @@
 <title>AssetGuard Pro - Unified Terminal & Sales Analytics</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
     :root { --primary: #0072CE; --dark: #001A35; --accent: #ff6b00; --edit: #f59e0b; --light: #f8faff; --locked: #e2e8f0; --error: #ef4444; --success: #22c55e; --bg: #f4f6f9; --danger:#ef4444; --muted:#64748b; --warning: #f59e0b; --mpesa: #00a859; }
@@ -88,17 +87,6 @@
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index: 4000; padding: 10px; }
     .modal-box { background: white; max-width: 650px; width: 100%; border-radius: 20px; overflow: hidden; }
     .modal-content { background:#fff; width:100%; max-width:420px; border-radius:18px; max-height:90vh; overflow:auto; padding: 20px; box-sizing: border-box; }
-    .ledger-receipt-upload { background:#fff; border:1px solid #dbeafe; border-radius:12px; padding:12px; margin:10px 0; }
-    .ledger-receipt-upload button { width:100%; }
-    .receipt-upload-status { display:none; margin:8px 0 0; padding:8px 10px; border-radius:8px; background:#eff6ff; color:#1e40af; font-size:11px; line-height:1.45; }
-    .receipt-upload-status.error { background:#fef2f2; color:#b91c1c; }
-    .receipt-upload-controls { display:flex; flex-direction:column; gap:5px; padding:12px 20px; background:#fff; }
-    .receipt-upload-controls small { color:var(--muted); font-size:10px; }
-    .imported-thermal-receipt { width:54mm; max-width:54mm; margin:0 auto; padding:2mm; box-sizing:border-box; background:#fff; color:#000; font:10px/1.35 'Courier New', Courier, monospace; overflow-wrap:anywhere; }
-    .imported-thermal-receipt pre, .imported-a4-receipt pre { margin:0; font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
-    .imported-a4-receipt { min-height:100mm; padding:24px; background:#fff; color:#000; box-sizing:border-box; font:12px/1.5 'Courier New', Courier, monospace; }
-    .thermal-print-actions { display:flex; gap:8px; flex-wrap:wrap; }
-    .thermal-print-actions button { flex:1 1 120px; }
     .edit-block { background: #f8fafc; padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
     .edit-row { display: grid; grid-template-columns: 1fr 50px 60px 70px; gap: 6px; margin-top: 5px; }
     .edit-row input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 11px; width:100%; box-sizing:border-box; }
@@ -405,21 +393,6 @@
         font-weight: 700;
         letter-spacing: 0.5px;
     }
-
-    @media print {
-        @page { size: 58mm auto; margin: 0; }
-        body.thermal-print-mode { margin:0 !important; padding:0 !important; background:#fff !important; }
-        body.thermal-print-mode * { visibility:hidden !important; }
-        body.thermal-print-mode #receiptModal,
-        body.thermal-print-mode #receiptModal #receipt-area,
-        body.thermal-print-mode #receiptModal #receipt-content,
-        body.thermal-print-mode #receiptModal #receipt-content * { visibility:visible !important; }
-        body.thermal-print-mode #receiptModal { display:block !important; position:static !important; inset:auto !important; width:auto !important; height:auto !important; padding:0 !important; background:#fff !important; }
-        body.thermal-print-mode #receiptModal .modal-box { width:58mm !important; max-width:58mm !important; margin:0 !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; overflow:visible !important; }
-        body.thermal-print-mode #receiptModal #receipt-area { max-height:none !important; overflow:visible !important; padding:0 !important; margin:0 !important; }
-        body.thermal-print-mode #receiptModal #receipt-content { width:54mm !important; max-width:54mm !important; min-height:0 !important; margin:0 auto !important; padding:2mm !important; border:0 !important; box-shadow:none !important; }
-        body.thermal-print-mode #receiptModal .modal-box > div:not(#receipt-area) { display:none !important; }
-    }
 </style>
 </head>
 <body>
@@ -614,13 +587,6 @@
         </div>
     </div>
     
-    <div class="ledger-receipt-upload">
-        <button class="btn-main" type="button" style="background:var(--primary); margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload PDF Receipt for Thermal Printing</button>
-        <input id="receiptPdfInput" type="file" accept=".pdf,application/pdf" style="display:none;" onchange="handleReceiptPdfUpload(event)">
-        <p style="font-size:10px; color:var(--muted); margin:7px 0 0;">Text-based PDFs are read in this browser and are not saved. Scanned/image-only PDFs are not supported yet.</p>
-        <div id="ledgerReceiptUploadStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
-    </div>
-
     <input class="search-input" placeholder="Search customer or product..." onkeyup="filterSales()" id="searchInput">
     
     <div class="stats-grid" style="margin-top: 12px;">
@@ -677,11 +643,6 @@
     <div class="modal-box">
         <div id="receipt-area" style="padding:0px; background:#fff; font-family:'Plus Jakarta Sans', sans-serif; color:#000; overflow: auto; max-height: 70vh;"></div>
         <div style="padding:20px; background:#f8fafc; border-top: 1px solid #e2e8f0; display:flex; flex-direction: column; gap:10px;">
-            <div class="receipt-upload-controls">
-                <button class="btn-main" type="button" style="background:#334155; margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload a Different PDF Receipt</button>
-                <small>Text is extracted locally. Scanned/image-only PDFs cannot be converted.</small>
-                <div id="receiptImportStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
-            </div>
             <div id="thermal-actions-row" style="display:none; flex-direction:column; gap:10px; background:#f1f5f9; padding:12px; border-radius:12px; border:1px solid #e2e8f0;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase;">Bluetooth Device (RPP02N Printer)</span>
@@ -693,11 +654,6 @@
                         Pair / Connect RPP02N
                     </button>
                     <button class="btn-main" id="btPrintBtn" style="background:var(--success); margin:0; flex:1;" disabled onclick="printDirectToBluetooth()">🖨️ Print Direct</button>
-                </div>
-                <div class="thermal-print-actions">
-                    <button class="btn-main" style="background:var(--primary); margin:0;" onclick="shareReceipt()">Download 58mm PDF</button>
-                    <button class="btn-main" style="background:#25D366; margin:0;" onclick="nativeShare()">Share 58mm Receipt</button>
-                    <button class="btn-main" style="background:#475569; margin:0;" onclick="printThermalReceipt()">Print from Browser</button>
                 </div>
             </div>
 
@@ -1789,7 +1745,6 @@ window.openReceiptSummary = (items) => {
         timestamp: new Date().toISOString(),
         partialPayments: []
     };
-    setReceiptUploadStatus('');
     isThermalReceiptMode = false;
     updateReceiptModalUI();
     generateReceiptContent();
@@ -1814,7 +1769,6 @@ window.reprintReceipt = (id) => {
         timestamp: sale.timestamp,
         partialPayments: sale.payments || []
     };
-    setReceiptUploadStatus('');
     isThermalReceiptMode = false;
     updateReceiptModalUI();
     generateReceiptContent();
@@ -1889,14 +1843,6 @@ window.printDirectToBluetooth = async () => {
         const encoder = new TextEncoder();
         let commands = [];
 
-        if (typeof payload.importedText === 'string') {
-            commands.push(new Uint8Array([0x1B, 0x40]));
-            commands.push(new Uint8Array([0x1B, 0x61, 0x00]));
-            wrapThermalReceiptText(payload.importedText, 32).forEach(line => {
-                commands.push(encoder.encode(line + '\r\n'));
-            });
-            commands.push(encoder.encode('\r\n\r\n'));
-        } else {
         commands.push(new Uint8Array([0x1B, 0x40]));
         commands.push(new Uint8Array([0x1B, 0x61, 0x01]));
         commands.push(new Uint8Array([0x1B, 0x45, 0x01]));
@@ -1937,7 +1883,6 @@ window.printDirectToBluetooth = async () => {
         commands.push(encoder.encode('--------------------------------\n'));
         commands.push(encoder.encode('THANK YOU FOR SHOPPING!\n'));
         commands.push(encoder.encode('Powered by AssetGuard Pro\n\n'));
-        }
 
         let totalLength = commands.reduce((acc, curr) => acc + curr.length, 0);
         let fullPacket = new Uint8Array(totalLength);
@@ -1983,162 +1928,18 @@ function updateReceiptModalUI() {
     const thermalRow = document.getElementById('thermal-actions-row');
     const pdfRow = document.getElementById('pdf-actions-row');
 
-    document.body.classList.toggle('thermal-print-mode', isThermalReceiptMode);
     if (toggleBtn) {
         toggleBtn.innerText = isThermalReceiptMode ? "Switch to Standard A4" : "Switch to 58mm Thermal";
     }
 
     if (isThermalReceiptMode) {
-        if (thermalRow) thermalRow.style.display = 'flex';
-        if (pdfRow) pdfRow.style.display = 'none';
+        thermalRow.style.display = 'flex';
+        pdfRow.style.display = 'none';
     } else {
-        if (thermalRow) thermalRow.style.display = 'none';
-        if (pdfRow) pdfRow.style.display = 'flex';
+        thermalRow.style.display = 'none';
+        pdfRow.style.display = 'flex';
     }
 }
-
-function setReceiptUploadStatus(message, isError = false) {
-    ['ledgerReceiptUploadStatus', 'receiptImportStatus'].forEach(id => {
-        const status = document.getElementById(id);
-        if (!status) return;
-        status.textContent = message;
-        status.classList.toggle('error', isError);
-        status.style.display = message ? 'block' : 'none';
-    });
-}
-
-function escapeReceiptHtml(value) {
-    return String(value).replace(/[&<>"']/g, character => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    })[character]);
-}
-
-function wrapThermalReceiptText(text, maxChars = 32) {
-    const wrapped = [];
-    String(text).split(/\r?\n/).forEach(line => {
-        const words = line.trim().split(/\s+/).filter(Boolean);
-        if (words.length === 0) {
-            wrapped.push('');
-            return;
-        }
-
-        let currentLine = '';
-        words.forEach(word => {
-            while (word.length > maxChars) {
-                if (currentLine) {
-                    wrapped.push(currentLine);
-                    currentLine = '';
-                }
-                wrapped.push(word.slice(0, maxChars));
-                word = word.slice(maxChars);
-            }
-            if (!word) return;
-            if (!currentLine) {
-                currentLine = word;
-            } else if ((currentLine + ' ' + word).length <= maxChars) {
-                currentLine += ' ' + word;
-            } else {
-                wrapped.push(currentLine);
-                currentLine = word;
-            }
-        });
-        if (currentLine) wrapped.push(currentLine);
-    });
-    return wrapped;
-}
-
-window.handleReceiptPdfUpload = async event => {
-    const input = event.target;
-    const file = input && input.files && input.files[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-        setReceiptUploadStatus('Choose a PDF file to continue.', true);
-        input.value = '';
-        return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-        setReceiptUploadStatus('This PDF is over 20 MB. Choose a smaller receipt file.', true);
-        input.value = '';
-        return;
-    }
-    if (!window.pdfjsLib) {
-        setReceiptUploadStatus('The PDF reader did not load. Refresh the page and try again.', true);
-        input.value = '';
-        return;
-    }
-
-    setReceiptUploadStatus(`Reading ${file.name}…`);
-    try {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-        const pages = [];
-
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-            const page = await pdf.getPage(pageNumber);
-            const content = await page.getTextContent();
-            const items = (content.items || []).map(item => ({
-                text: String(item.str || '').trim(),
-                x: item.transform && item.transform[4] || 0,
-                y: item.transform && item.transform[5] || 0,
-                hasEOL: Boolean(item.hasEOL)
-            })).filter(item => item.text);
-
-            items.sort((a, b) => {
-                if (Math.abs(b.y - a.y) > 4) return b.y - a.y;
-                return a.x - b.x;
-            });
-
-            const pageLines = [];
-            let currentY = null;
-            let lineBuffer = [];
-            items.forEach(item => {
-                if (currentY !== null && (Math.abs(item.y - currentY) > 4 || item.hasEOL)) {
-                    if (lineBuffer.length) pageLines.push(lineBuffer.join(' '));
-                    lineBuffer = [];
-                }
-                if (currentY === null || Math.abs(item.y - currentY) > 4) currentY = item.y;
-                lineBuffer.push(item.text);
-            });
-            if (lineBuffer.length) pageLines.push(lineBuffer.join(' '));
-            if (pageLines.length) pages.push(pageLines.join('\n'));
-        }
-
-        const importedText = pages.join('\n\n').trim();
-        if (!importedText) {
-            setReceiptUploadStatus('No selectable text was found. This may be a scanned/image-only PDF, which cannot be converted yet.', true);
-            return;
-        }
-
-        activeReceiptPayload = {
-            importedText,
-            importedFileName: file.name,
-            timestamp: new Date().toISOString()
-        };
-        isThermalReceiptMode = false;
-        updateReceiptModalUI();
-        generateReceiptContent();
-        document.getElementById('receiptModal').style.display = 'flex';
-        setReceiptUploadStatus(`${file.name} loaded. Switch to 58mm Thermal, then download, share, print from your browser, or use Bluetooth.`);
-    } catch (error) {
-        console.error('PDF receipt import failed', error);
-        setReceiptUploadStatus('Could not read this PDF. Check that it opens normally and try again.', true);
-    } finally {
-        input.value = '';
-    }
-};
-
-window.printThermalReceipt = () => {
-    if (!isThermalReceiptMode || !document.getElementById('receipt-content')) {
-        showAlertModal('Thermal Format Required', 'Switch the receipt to 58mm Thermal before printing.');
-        return;
-    }
-    window.print();
-};
 
 window.generateReceiptContent = () => {
     if (!activeReceiptPayload) return;
@@ -2146,20 +1947,6 @@ window.generateReceiptContent = () => {
 
     const savedProfile = localStorage.getItem(`ag_profile_cache_${currentUID}`);
     if (savedProfile) { userProfile = JSON.parse(savedProfile); }
-
-    if (typeof activeReceiptPayload.importedText === 'string') {
-        const receiptText = escapeReceiptHtml(activeReceiptPayload.importedText);
-        if (isThermalReceiptMode) {
-            document.getElementById('receipt-area').innerHTML = `
-                <div id="receipt-content" class="imported-thermal-receipt"><pre>${receiptText}</pre></div>
-            `;
-        } else {
-            document.getElementById('receipt-area').innerHTML = `
-                <div id="receipt-content" class="imported-a4-receipt"><pre>${receiptText}</pre></div>
-            `;
-        }
-        return;
-    }
 
     const dateObj = new Date(timestamp);
     const dateStr = dateObj.toLocaleDateString();
@@ -2343,10 +2130,7 @@ window.generateReceiptContent = () => {
     }
 };
 
-window.closeReceipt = () => {
-    document.getElementById('receiptModal').style.display = 'none';
-    document.body.classList.remove('thermal-print-mode');
-};
+window.closeReceipt = () => document.getElementById('receiptModal').style.display = 'none';
 
 window.shareReceipt = () => { 
     const element = document.getElementById('receipt-content'); 
