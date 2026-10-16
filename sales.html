@@ -619,7 +619,7 @@
     <div class="ledger-receipt-upload">
         <button class="btn-main" type="button" style="background:var(--primary); margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload PDF Receipt for Thermal Printing</button>
         <input id="receiptPdfInput" type="file" accept=".pdf,application/pdf" style="display:none;" onchange="handleReceiptPdfUpload(event)">
-        <p style="font-size:10px; color:var(--muted); margin:7px 0 0;">Text-based PDFs are read in this browser and are not saved. Scanned/image-only PDFs are not supported yet.</p>
+        <p style="font-size:10px; color:var(--muted); margin:7px 0 0;">PDFs are processed in this browser and are not saved. Image-only PDFs render to thermal format (up to 20 pages).</p>
         <div id="ledgerReceiptUploadStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
     </div>
 
@@ -681,7 +681,7 @@
         <div style="padding:20px; background:#f8fafc; border-top: 1px solid #e2e8f0; display:flex; flex-direction: column; gap:10px;">
             <div class="receipt-upload-controls">
                 <button class="btn-main" type="button" style="background:#334155; margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload a Different PDF Receipt</button>
-                <small>Text is extracted locally. Scanned/image-only PDFs cannot be converted.</small>
+                <small>PDFs are converted locally. Image-only PDFs render as thermal receipt images.</small>
                 <div id="receiptImportStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
             </div>
             <div id="thermal-actions-row" style="display:none; flex-direction:column; gap:10px; background:#f1f5f9; padding:12px; border-radius:12px; border:1px solid #e2e8f0;">
