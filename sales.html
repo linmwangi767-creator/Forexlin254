@@ -97,6 +97,8 @@
     .imported-thermal-receipt { width:54mm; max-width:54mm; margin:0 auto; padding:2mm; box-sizing:border-box; background:#fff; color:#000; font:10px/1.35 'Courier New', Courier, monospace; overflow-wrap:anywhere; }
     .imported-thermal-receipt pre, .imported-a4-receipt pre { margin:0; font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
     .imported-a4-receipt { min-height:100mm; padding:24px; background:#fff; color:#000; box-sizing:border-box; font:12px/1.5 'Courier New', Courier, monospace; }
+    .imported-receipt-page { display:block; width:100%; height:auto; margin:0 auto 8px; background:#fff; }
+    .imported-receipt-page:last-child { margin-bottom:0; }
     .thermal-print-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .thermal-print-actions button { flex:1 1 120px; }
     .edit-block { background: #f8fafc; padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
@@ -617,7 +619,7 @@
     <div class="ledger-receipt-upload">
         <button class="btn-main" type="button" style="background:var(--primary); margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload PDF Receipt for Thermal Printing</button>
         <input id="receiptPdfInput" type="file" accept=".pdf,application/pdf" style="display:none;" onchange="handleReceiptPdfUpload(event)">
-        <p style="font-size:10px; color:var(--muted); margin:7px 0 0;">Text-based PDFs are read in this browser and are not saved. Scanned/image-only PDFs are not supported yet.</p>
+        <p style="font-size:10px; color:var(--muted); margin:7px 0 0;">PDFs are processed in this browser and are not saved. Image-only PDFs render to thermal format (up to 20 pages).</p>
         <div id="ledgerReceiptUploadStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
     </div>
 
@@ -679,7 +681,7 @@
         <div style="padding:20px; background:#f8fafc; border-top: 1px solid #e2e8f0; display:flex; flex-direction: column; gap:10px;">
             <div class="receipt-upload-controls">
                 <button class="btn-main" type="button" style="background:#334155; margin:0;" onclick="document.getElementById('receiptPdfInput').click()">Upload a Different PDF Receipt</button>
-                <small>Text is extracted locally. Scanned/image-only PDFs cannot be converted.</small>
+                <small>PDFs are converted locally. Image-only PDFs render as thermal receipt images.</small>
                 <div id="receiptImportStatus" class="receipt-upload-status" role="status" aria-live="polite"></div>
             </div>
             <div id="thermal-actions-row" style="display:none; flex-direction:column; gap:10px; background:#f1f5f9; padding:12px; border-radius:12px; border:1px solid #e2e8f0;">
@@ -1889,7 +1891,17 @@ window.printDirectToBluetooth = async () => {
         const encoder = new TextEncoder();
         let commands = [];
 
-        if (typeof payload.importedText === 'string') {
+        if (Array.isArray(payload.importedPages) && payload.importedPages.length) {
+            commands.push(new Uint8Array([0x1B, 0x40]));
+            commands.push(new Uint8Array([0x1B, 0x61, 0x00]));
+            payload.importedPages.forEach((page, index) => {
+                commands.push(...canvasToEscPosRaster(page.canvas, 384));
+                if (index < payload.importedPages.length - 1) {
+                    commands.push(new Uint8Array([0x0A, 0x0A]));
+                }
+            });
+            commands.push(encoder.encode('\r\n\r\n'));
+        } else if (typeof payload.importedText === 'string') {
             commands.push(new Uint8Array([0x1B, 0x40]));
             commands.push(new Uint8Array([0x1B, 0x61, 0x00]));
             wrapThermalReceiptText(payload.importedText, 32).forEach(line => {
@@ -2051,6 +2063,65 @@ function wrapThermalReceiptText(text, maxChars = 32) {
     return wrapped;
 }
 
+async function renderPdfPagesForThermal(pdf) {
+    if (pdf.numPages > 20) {
+        throw new Error('Image-only PDFs with more than 20 pages are not supported.');
+    }
+
+    const renderedPages = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const sourceViewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(768 / sourceViewport.width, 12000 / sourceViewport.height);
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.ceil(viewport.width));
+        canvas.height = Math.max(1, Math.ceil(viewport.height));
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) throw new Error('Canvas rendering is unavailable.');
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: context, viewport, background: '#fff' }).promise;
+        renderedPages.push({ canvas, dataUrl: canvas.toDataURL('image/png') });
+    }
+    return renderedPages;
+}
+
+function canvasToEscPosRaster(sourceCanvas, targetWidth = 384) {
+    const width = targetWidth;
+    const height = Math.max(1, Math.round(sourceCanvas.height * width / sourceCanvas.width));
+    const printCanvas = document.createElement('canvas');
+    printCanvas.width = width;
+    printCanvas.height = height;
+    const context = printCanvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Canvas image conversion is unavailable.');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(sourceCanvas, 0, 0, width, height);
+
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const bytesPerRow = Math.ceil(width / 8);
+    const raster = new Uint8Array(bytesPerRow * height);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const pixelIndex = (y * width + x) * 4;
+            const luminance = pixels[pixelIndex] * 0.299
+                + pixels[pixelIndex + 1] * 0.587
+                + pixels[pixelIndex + 2] * 0.114;
+            if (pixels[pixelIndex + 3] > 127 && luminance < 180) {
+                raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+            }
+        }
+    }
+
+    const header = new Uint8Array([
+        0x1D, 0x76, 0x30, 0x00,
+        bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+        height & 0xFF, (height >> 8) & 0xFF
+    ]);
+    return [header, raster];
+}
+
 window.handleReceiptPdfUpload = async event => {
     const input = event.target;
     const file = input && input.files && input.files[0];
@@ -2110,7 +2181,17 @@ window.handleReceiptPdfUpload = async event => {
 
         const importedText = pages.join('\n\n').trim();
         if (!importedText) {
-            setReceiptUploadStatus('No selectable text was found. This may be a scanned/image-only PDF, which cannot be converted yet.', true);
+            const importedPages = await renderPdfPagesForThermal(pdf);
+            activeReceiptPayload = {
+                importedPages,
+                importedFileName: file.name,
+                timestamp: new Date().toISOString()
+            };
+            isThermalReceiptMode = true;
+            updateReceiptModalUI();
+            generateReceiptContent();
+            document.getElementById('receiptModal').style.display = 'flex';
+            setReceiptUploadStatus(`No selectable text was found. Rendered ${importedPages.length} page(s) as images and switched to 58mm Thermal. You can download, share, print from your browser, or use Bluetooth.`);
             return;
         }
 
@@ -2126,7 +2207,10 @@ window.handleReceiptPdfUpload = async event => {
         setReceiptUploadStatus(`${file.name} loaded. Switch to 58mm Thermal, then download, share, print from your browser, or use Bluetooth.`);
     } catch (error) {
         console.error('PDF receipt import failed', error);
-        setReceiptUploadStatus('Could not read this PDF. Check that it opens normally and try again.', true);
+        const userMessage = error && error.message === 'Image-only PDFs with more than 20 pages are not supported.'
+            ? error.message
+            : 'Could not read this PDF. Check that it opens normally and try again.';
+        setReceiptUploadStatus(userMessage, true);
     } finally {
         input.value = '';
     }
@@ -2146,6 +2230,17 @@ window.generateReceiptContent = () => {
 
     const savedProfile = localStorage.getItem(`ag_profile_cache_${currentUID}`);
     if (savedProfile) { userProfile = JSON.parse(savedProfile); }
+
+    if (Array.isArray(activeReceiptPayload.importedPages)) {
+        const pageImages = activeReceiptPayload.importedPages.map((page, index) => `
+            <img class="imported-receipt-page" src="${page.dataUrl}" alt="Uploaded receipt page ${index + 1}">
+        `).join('');
+        const previewClass = isThermalReceiptMode ? 'imported-thermal-receipt' : 'imported-a4-receipt';
+        document.getElementById('receipt-area').innerHTML = `
+            <div id="receipt-content" class="${previewClass}">${pageImages}</div>
+        `;
+        return;
+    }
 
     if (typeof activeReceiptPayload.importedText === 'string') {
         const receiptText = escapeReceiptHtml(activeReceiptPayload.importedText);
