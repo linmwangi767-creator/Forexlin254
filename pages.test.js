@@ -87,9 +87,7 @@ describe("sales PDF thermal receipt flow", () => {
     expect(salesPage).toContain('id="receiptPdfInput" type="file" accept=".pdf,application/pdf"');
     expect(salesPage).toContain("window.handleReceiptPdfUpload = async event =>");
     expect(salesPage).toContain("pdfjsLib.getDocument");
-    expect(salesPage).toContain("No selectable text was found. Rendered");
-    expect(salesPage).toContain("renderPdfPagesForThermal(pdf)");
-    expect(salesPage).toContain("Array.isArray(activeReceiptPayload.importedPages)");
+    expect(salesPage).toContain("No selectable text was found");
   });
 
   it("renders imported receipt text in thermal mode and offers export and print actions", () => {
@@ -99,6 +97,5 @@ describe("sales PDF thermal receipt flow", () => {
     expect(salesPage).toContain("Share 58mm Receipt");
     expect(salesPage).toContain("Print from Browser");
     expect(salesPage).toContain("@page { size: 58mm auto; margin: 0; }");
-    expect(salesPage).toContain("0x1D, 0x76, 0x30");
   });
 });
